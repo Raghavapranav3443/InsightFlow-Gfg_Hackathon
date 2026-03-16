@@ -332,19 +332,6 @@ The bundled dataset is **Customer Behaviour: Online vs Offline** — 11,789 cust
 
 ---
 
-## Known Limitations
 
-- No date column in the bundled dataset — time-series queries are declined with an explanation
-- Session data is in-memory — server restart clears all sessions
-- Upload limit is 5 MB — large CSVs should be sampled before uploading
-- Dark mode is not implemented
-
----
-
-## License
-
-MIT
-
----
 
 *InsightFlow — Built for GFG Classroom × MVSR Hyderabad Hackathon 2026*
