@@ -1,16 +1,3 @@
-Below is a **fully copy-paste ready `README.md`** with:
-
-* Professional **badges**
-* **Feature cards**
-* Better **section hierarchy**
-* Clean **GitHub markdown formatting**
-* Designed for **hackathon judges + GitHub visitors**
-
-No special tooling required — just paste into `README.md`.
-
----
-
-```markdown
 # InsightFlow
 
 <p align="center">
