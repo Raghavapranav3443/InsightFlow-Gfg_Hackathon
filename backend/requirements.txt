@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # InsightFlow v2 — Backend dependencies (fallback for start.py)
 # Canonical spec is pyproject.toml at project root. Keep this in sync.
 fastapi>=0.115.0
@@ -20,3 +21,10 @@ sse-starlette>=2.0.0
 pydantic-settings>=2.0.0
 pydantic[email]>=2.0.0
 sentry-sdk[fastapi]>=2.0.0
+=======
+fastapi==0.115.0
+uvicorn[standard]==0.30.0
+python-dotenv==1.0.1
+httpx==0.27.0
+python-multipart==0.0.9
+>>>>>>> 133e016e0e0b1defff61fad3bd011d924aeb6602

@@ -80,6 +80,7 @@ export async function clearHistory() {
 
 export async function getOverview() {
   return apiFetch('/overview', { method: 'POST' })
+<<<<<<< HEAD
 }
 
 export async function sendChatMessage(message, history, context = null) {
@@ -87,4 +88,6 @@ export async function sendChatMessage(message, history, context = null) {
     method: 'POST',
     body: JSON.stringify({ message, history, context }),
   })
+=======
+>>>>>>> 133e016e0e0b1defff61fad3bd011d924aeb6602
 }

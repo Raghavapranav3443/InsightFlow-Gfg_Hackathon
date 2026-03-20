@@ -37,15 +37,25 @@ print(r.status_code, r.text[:300])
           </div>
           <div className="diag-row">
             <span className="diag-key">Groq API Key</span>
+<<<<<<< HEAD
             <span className={`diag-val ${health?.groq_key_looks_valid ? 'ok' : 'fail'}`}>
               {health?.groq_key_looks_valid
                 ? `✓ Loaded (${health.groq_key_prefix})`
+=======
+            <span className={`diag-val ${health?.gemini_key_looks_valid ? 'ok' : 'fail'}`}>
+              {health?.gemini_key_looks_valid
+                ? `✓ Loaded (${health.gemini_key_prefix})`
+>>>>>>> 133e016e0e0b1defff61fad3bd011d924aeb6602
                 : '✗ Not set — add GROQ_API_KEY to .env'}
             </span>
           </div>
           <div className="diag-row">
             <span className="diag-key">Model</span>
+<<<<<<< HEAD
             <span className="diag-val">{health?.groq_model || 'llama-3.3-70b-versatile'}</span>
+=======
+            <span className="diag-val">{health?.gemini_model || 'llama-3.3-70b-versatile'}</span>
+>>>>>>> 133e016e0e0b1defff61fad3bd011d924aeb6602
           </div>
           <div className="diag-row">
             <span className="diag-key">GFG Dataset</span>
@@ -57,7 +67,11 @@ print(r.status_code, r.text[:300])
           </div>
         </div>
 
+<<<<<<< HEAD
         {!health?.groq_key_looks_valid && (
+=======
+        {!health?.gemini_key_looks_valid && (
+>>>>>>> 133e016e0e0b1defff61fad3bd011d924aeb6602
           <div style={{
             marginTop: 14, padding: '10px 14px',
             background: 'var(--danger-bg)', borderRadius: 'var(--radius)',

@@ -225,6 +225,7 @@ export default function DynamicChart({ type, rows, xCol, yCols }) {
             <Legend iconSize={10} wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
               formatter={fmtLabel} />
           )}
+<<<<<<< HEAD
           {lineKeys.map((key, i) => {
             const isForecast = key.endsWith('_forecast')
             return (
@@ -236,6 +237,14 @@ export default function DynamicChart({ type, rows, xCol, yCols }) {
                 activeDot={{ r: 5 }} isAnimationActive={false} />
             )
           })}
+=======
+          {lineKeys.map((key, i) => (
+            <Line key={key} type="monotone" dataKey={key}
+              stroke={PALETTE[i % PALETTE.length]} strokeWidth={2.5}
+              dot={{ r: 3, fill: PALETTE[i % PALETTE.length] }}
+              activeDot={{ r: 5 }} isAnimationActive={false} />
+          ))}
+>>>>>>> 133e016e0e0b1defff61fad3bd011d924aeb6602
         </LineChart>
       </ResponsiveContainer>
     )
