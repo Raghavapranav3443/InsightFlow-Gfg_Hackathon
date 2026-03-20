@@ -1,0 +1,64 @@
+/* Toggle.module.css */
+
+.wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.wrap.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Hide native checkbox visually */
+.input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.track {
+  position: relative;
+  display: inline-block;
+  width: 38px;
+  height: 22px;
+  background: var(--border);
+  border-radius: 999px;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+}
+
+.input:checked + .track {
+  background: var(--primary);
+}
+
+.thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+  transition: transform 0.2s ease;
+}
+
+.input:checked + .track .thumb {
+  transform: translateX(16px);
+}
+
+.label {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1;
+}
+
+.wrap:hover .track {
+  opacity: 0.88;
+}

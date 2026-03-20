@@ -1,0 +1,52 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Dockerfile.backend — InsightFlow API
+# Multi-stage: 1) install deps  2) production image (slim)
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ── Stage 1: dependency builder ───────────────────────────────────────────────
+FROM python:3.11-slim AS builder
+
+WORKDIR /build
+
+# Install build tools for native extensions (asyncpg, hiredis, bcrypt)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential gcc libpq-dev curl && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+# ── Stage 2: production runtime ───────────────────────────────────────────────
+FROM python:3.11-slim AS production
+
+WORKDIR /app
+
+# Runtime system deps only
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 curl && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy installed packages from builder
+COPY --from=builder /install /usr/local
+
+# Copy application source
+COPY backend/ ./
+
+# Create data directory for SQLite per-dataset files
+RUN mkdir -p /data/users
+
+# Non-root user for security
+RUN addgroup --system insightflow && \
+    adduser --system --ingroup insightflow --home /app insightflow && \
+    chown -R insightflow:insightflow /app /data
+USER insightflow
+
+EXPOSE 8000
+
+# Healthcheck — waits for the /health route to be ready
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+  CMD curl -f http://localhost:8000/health || exit 1
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", \
+     "--workers", "2", "--log-level", "info"]

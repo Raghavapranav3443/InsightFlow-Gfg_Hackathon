@@ -1,0 +1,231 @@
+# InsightFlow v3 — Frontend Overhaul Implementation Plan
+
+> **Updated:** Added Phase 0 — Auto-Dashboard (new highest-priority frontend feature).
+
+## Progress Audit
+
+### ✅ Backend — ~80% Done
+
+| Block | Feature | Status |
+|---|---|---|
+| Block 0 | Repo structure, Makefile, docker-compose, pyproject.toml | ✅ Done |
+| Block 1 | Auth (JWT, register, login, refresh, logout) | ✅ Done — `backend/auth/` fully implemented |
+| Block 1 | Security headers middleware | ✅ Done — `backend/middleware/security.py` |
+| Block 1 | Redis rate limiting via slowapi | ✅ Done in `main.py` |
+| Block 2 | PostgreSQL models + SQLAlchemy | ✅ Done — `backend/datasets/models.py` |
+| Block 2 | Alembic migrations | ✅ Done — `backend/alembic/` exists |
+| Block 3 | Pipeline refactored into stages | ✅ Done — `backend/pipeline/stage1_sql.py`, `stage2_viz.py`, `executor.py`, `runner.py`, `postprocessor.py`, `insight.py` |
+| Block 3 | LLM multi-provider with cache | ✅ Done — `backend/llm/providers.py`, `cache.py` |
+| Block 3 | Structured logging via structlog | ✅ Done — `backend/core/logging.py` |
+| Block 5 | Dashboards router + share routes | ✅ Done — `backend/dashboards/router.py` |
+| Block 5 | Query history endpoint | ✅ Done — `backend/pipeline/history.py` |
+
+### ❌ Frontend — ~25% Done (THE MAIN GAP)
+
+| Block | Feature | Status |
+|---|---|---|
+| Block 5.1 | Design system (tokens, colors, typography) | ✅ Done — `design-system/tokens.css` exists |
+| Block 5.2 | UI component library | ✅ Done — Input, Textarea, Modal, Skeleton, Toast, Spinner, Toggle added |
+| Block 5.3 | Auth pages (`/login`, `/register`, `/forgot-password`) | ❌ Missing entirely |
+| Block 5.3 | `AuthContext` + JWT in-memory store | ❌ Missing — frontend still uses `X-Session-ID` header (legacy) |
+| Block 5.4 | Dashboard redesign (4-zone layout) | ✅ Done — 3-panel sidebar accordion, Save Dashboard modal |
+| Block 5.5 | SSE integration for real-time pipeline progress | ❌ Missing — Dashboard uses fake `setTimeout` timer animation instead |
+| Block 5.6 | Responsive layout | ✅ Done — mobile breakpoints added |
+| Block 5.7 | Zustand state management | ✅ Done — auth, dataset, dashboard, UI stores created |
+| Block 5.7 | Typed API layer (`frontend/src/lib/api/`) | ❌ Missing — monolithic `utils/api.js` with session ID auth |
+| Block 5.8 | CSV export on charts | ✅ Done — Added "↓ CSV" button to chart meta headers |
+| Block 5.3 | Google OAuth button on login page | ❌ Missing |
+| Block 8.1 | Dataset switcher in sidebar | ✅ Done — moved to top bar per plan |
+| Block 8.2 | Saved dashboards panel | ✅ Done |
+| Block 8.3 | History with thumbnail previews | ✅ Done |
+
+> **Your assessment is correct.** The backend is largely done—auth, pipeline, datasets, LLM, middleware, dashboards, history are all implemented. The frontend doesn't expose any of it: no login page, no JWT auth, fake progress bars, no real-time streaming, no saved dashboards, no dataset switcher.
+
+---
+
+## Proposed Implementation — Phased Plan
+
+> Ordered by dependency and impact. Each phase is independently shippable.
+
+---
+
+### Phase 0 — Auto-Dashboard + Rename ⚡ New Feature
+
+**What:** A brand-new "dashboard" page shown immediately after a dataset is loaded. The current `Dashboard.jsx` (query explorer) gets renamed. The Landing page CTA changes to load the dataset and nav to this new page.
+
+**Effort:** Medium — backend endpoints already exist (`/api/auto-report`, `/api/overview`). This is purely a frontend addition.
+
+#### Renaming
+- `frontend/src/pages/Dashboard.jsx` → **`QueryExplorer.jsx`** (and its CSS module)
+- Update routes in `App.jsx`: `/dashboard` → `/explore`
+- All internal nav links updated
+
+#### [NEW] `frontend/src/pages/AutoDashboard.jsx` + `AutoDashboard.module.css`
+- **Route:** `/dashboard` (this becomes the new default landing after dataset load)
+- **Section 1 — Dataset Overview** (top of page)
+  - Calls `POST /api/overview` → renders AI summary card, expert note, column group cards
+  - Shows dataset name, row count, column count, column type breakdown
+- **Section 2 — Auto-Generated Charts** (~10 charts, progressively rendered)
+  - Strategy: call `POST /api/auto-report` which returns a set of charts from the backend
+  - If the backend returns <10 charts, supplement with 2–3 targeted extra queries run sequentially
+  - **Staggered batch strategy** to avoid rate limiting:
+    - Batch 1 (charts 1–3): fire immediately
+    - Batch 2 (charts 4–6): fire after 2s delay
+    - Batch 3 (charts 7–10): fire after 4s delay
+  - Each chart renders as soon as its batch resolves (progressive, not wait-for-all)
+  - Loading skeletons shown for pending batches
+  - If any batch hits rate limit (429), retry after 5s with exponential backoff
+- **Section 3 — Entry to Query Explorer**
+  - Prominent "Ask your own question →" button that navigates to `/explore`
+
+#### [MODIFY] `frontend/src/pages/Landing.jsx`
+- **Live Demo button**: instead of injecting a demo query string, it now:
+  1. Calls `POST /api/preload` to load the GFG dataset server-side
+  2. Navigates to `/dashboard` (the new `AutoDashboard`)
+- Remove the `initialQuery` state passing that currently goes to the old Dashboard
+
+---
+
+### Phase 1 — Wire Auth (Frontend ↔ Backend)
+
+**What:** Connect the already-built backend auth system to the frontend.
+
+#### [NEW] `frontend/src/contexts/AuthContext.jsx`
+- Provide `user`, `token`, `login()`, `logout()`, `refreshToken()` to the entire app
+- JWT stored **in-memory** (not localStorage); refresh token via httpOnly cookie on `/auth/refresh`
+- Auto-refresh on 401 response
+
+#### [NEW] `frontend/src/pages/Login.jsx` + `Login.module.css`
+- Centered card layout, email + password fields, Google OAuth button
+- Calls `POST /auth/login`, stores JWT in `AuthContext`
+- Redirects to `/dashboard` on success
+
+#### [NEW] `frontend/src/pages/Register.jsx` + `Register.module.css`
+- Email + password with strength meter, AI data consent checkbox
+- Calls `POST /auth/register`
+
+#### [MODIFY] `frontend/src/utils/api.js` → `frontend/src/lib/api/client.js`
+- Replace `X-Session-ID` header with `Authorization: Bearer <token>` from `AuthContext`
+- Add auto-retry with token refresh on 401
+- Create typed files: `auth.js`, `datasets.js`, `pipeline.js`, `dashboards.js`, `history.js` per resource
+
+#### [MODIFY] `frontend/src/App.jsx`
+- Add `<AuthContext.Provider>` wrapping all routes
+- Add protected route wrapper (redirect to `/login` if no valid token)
+- Add `/login`, `/register` routes
+
+---
+
+### Phase 2 — Real-Time SSE Pipeline Progress
+
+**What:** Replace fake `setTimeout` timer in Dashboard with real SSE streaming from the backend.
+
+#### [MODIFY] `frontend/src/pages/Dashboard.jsx`
+- Replace `runQuery()` polling with `EventSource` (or `fetch-event-source`) connection to `POST /datasets/{id}/query` SSE endpoint
+- Update `PipelineProgress` component to consume live events: `schema_loaded` → `sql_generated` (show SQL preview) → `sql_executed` (show row count) → `viz_mapped` → `insight_generated`
+- Charts render progressively as each SSE event arrives (not waiting for all)
+- Add streaming error handling: retry once on disconnect, then show error
+
+#### [NEW] `frontend/src/hooks/useQueryStream.js`
+- Encapsulates SSE connection lifecycle (open, events, error, close)
+- Returns `{ status, currentStep, sqlPreview, rowCount, result, error }`
+
+---
+
+### Phase 3 — Component Library Completion
+
+**What:** Build the missing UI components per Block 5.2.
+
+#### [NEW] `frontend/src/components/ui/` additions:
+- `Input.jsx` + `Input.module.css`
+- `Textarea.jsx` + `Textarea.module.css`
+- `Modal.jsx` + `Modal.module.css` (portal-based, focus trap)
+- `Skeleton.jsx` + `Skeleton.module.css` (animated shimmer for loading states)
+- `Toast.jsx` + `Toast.module.css` + `useToast.js` hook (notification system)
+- `Spinner.jsx`
+- `Toggle.jsx` + `Toggle.module.css`
+
+---
+
+### Phase 4 — Dashboard Redesign (4-Zone Layout)
+
+**What:** Implement the full 4-zone layout from Block 5.4.
+
+#### [MODIFY] `frontend/src/pages/Dashboard.jsx` + `Dashboard.module.css`
+- **Left sidebar** becomes 3-panel accordion: Schema Browser | Query History | Saved Dashboards
+  - Query History: list of previous queries with mini thumbnails, click to restore
+  - Saved Dashboards: list from `GET /dashboards`, click to load
+  - "Save Dashboard" button → Modal (Phase 3) asking for name
+- **Dataset selector** in the top bar (replaces hardcoded single dataset)
+- **Bottom query bar** persists properly even when scrolling (already partial)
+- **Chart full-screen** on double-click
+
+#### [NEW] `frontend/src/zustand/` stores:
+- `useAuthStore.js` — user, token, login/logout
+- `useDatasetStore.js` — current dataset, schema, datasets list
+- `useDashboardStore.js` — current result, history, saved dashboards
+- `useUIStore.js` — theme, sidebar state, loading states
+
+---
+
+### Phase 5 — Dataset Switcher + Saved Dashboards (Block 8)
+
+**What:** Multi-dataset support and persistent dashboards.
+
+#### [MODIFY] `frontend/src/pages/Dashboard.jsx`
+- Dataset switcher in top bar — dropdown list from `GET /datasets`
+- Switching dataset: loads schema, re-fetches history for that dataset
+
+#### [NEW] `frontend/src/pages/SharedDashboard.jsx`
+- Read-only view for public share URLs (`/share/<token>`)
+- Calls `GET /share/<token>` endpoint
+
+---
+
+### Phase 6 — Responsive Layout + Export Improvements
+
+**What:** Mobile breakpoints + CSV export per chart.
+
+#### [MODIFY] `frontend/src/pages/Dashboard.module.css`
+- Add breakpoints: 320px (mobile), 768px (tablet), 1024px (desktop)
+- Mobile: sidebar as bottom sheet / hamburger
+- Chart grid: 1 col mobile, 2 col tablet, 2-3 col desktop
+
+#### [MODIFY] `frontend/src/pages/Dashboard.jsx`
+- Add "↓ CSV" button on each chart card to download underlying row data as CSV
+
+---
+
+## Verification Plan
+
+### Phase 1 — Auth
+- Start backend: `cd backend && python -m uvicorn main:app --port 8000`
+- Start frontend: `cd frontend && npm run dev`
+- Navigate to `http://localhost:5173/login` — verify login form renders
+- Register a new user at `/register` — verify redirect to `/login`
+- Login → verify redirect to `/dashboard`, JWT stored in memory
+- Refresh page → verify auto-refresh from cookie keeps user logged in
+- Logout → verify redirect to `/login`, token cleared
+
+### Phase 2 — SSE Streaming
+- Run a query in the dashboard
+- Verify the pipeline progress bar shows **real** steps (not fake timers)
+- Verify SQL preview appears in the "Building SQL..." step
+- Open browser DevTools → Network tab → verify `text/event-stream` connection
+
+### Phase 3 — Components
+- Visual review of each component in isolation
+
+### Phase 4 — Dashboard Redesign
+- Verify sidebar toggles between Schema / History / Saved Dashboards
+- Save a dashboard → verify it appears in sidebar
+- Click saved dashboard → verify charts restore
+
+### Phase 5 — Dataset Switcher
+- Upload 2 different CSVs
+- Verify dataset switcher in top bar shows both
+- Switch datasets → verify schema and history update
+
+### Phase 6 — Responsive
+- Browser DevTools → Device toolbar → test at 375px (mobile)
+- Verify hamburger menu and chart grid collapse correctly
